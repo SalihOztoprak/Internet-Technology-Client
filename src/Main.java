@@ -12,6 +12,7 @@ public class Main { public Main() {}
     
     ClientConfiguration config = new ClientConfiguration();
     config.setShowLogging(false);
+    config.setShowColors(true);
     for (String arg : args) {
       if (arg.equals("--no-colors")) {
         config.setShowColors(false);

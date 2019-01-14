@@ -8,10 +8,10 @@ import java.util.Stack;
 public class Client {
     private ClientConfiguration conf;
     private Socket socket;
-    MessageReader readerThread;
-    MessageWriter writerThread;
+    private MessageReader readerThread;
+    private MessageWriter writerThread;
     boolean isConnected = false;
-    NonblockingBufferedReader nonblockReader;
+    private NonblockingBufferedReader nonblockReader;
     private Stack<ClientMessage> clientMessages;
     private Stack<ServerMessage> serverMessages;
 
@@ -159,6 +159,7 @@ public class Client {
                         System.out.println("Client disconnected by server.");
                         Client.this.disconnect();
                     }
+
                     serverMessages.push(message);
                     receiveNull = 0;
                 }
@@ -225,5 +226,6 @@ public class Client {
         public void kill() {
             isRunning = false;
         }
+
     }
 }

@@ -85,7 +85,6 @@ public class Client {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
                             }
                             clientMessages.push(clientMessage);
-                            System.out.println("Type a broadcast message: ");
                         }
                         if (!serverMessages.empty()) {
                             ServerMessage received = (ServerMessage) serverMessages.pop();

@@ -3,7 +3,7 @@ public class Main { public Main() {}
     System.out.println("\t--no-logs: don't show the messages from and to the server in the console.");
     System.out.println("\t--no-colors: log debug messages without colors in the console.");
     System.out.println("");
-    
+
     if (args.length == 0) {
       System.out.println("Starting the chatServer.client with the default configuration.");
     } else {
@@ -11,6 +11,7 @@ public class Main { public Main() {}
     }
     
     ClientConfiguration config = new ClientConfiguration();
+    config.setShowLogging(false);
     for (String arg : args) {
       if (arg.equals("--no-colors")) {
         config.setShowColors(false);

@@ -13,7 +13,7 @@ public class ServerMessage {
     }
 
     public ServerMessage(String line) {
-        this.line = line;
+        this.line = line.replace("<br>", "\n");
     }
 
     public MessageType getMessageType() {
@@ -56,14 +56,5 @@ public class ServerMessage {
 
     public String toString() {
         return line;
-    }
-
-    private String[] printNewLine(String[] text) {
-        for (int i = 0; i < text.length; i++) {
-            if (text[i].contains("&")) {
-                text[i] = "\n";
-            }
-        }
-        return text;
     }
 }

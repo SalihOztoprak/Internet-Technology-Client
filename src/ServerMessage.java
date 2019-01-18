@@ -34,6 +34,7 @@ public class ServerMessage {
         return result;
     }
 
+
     private String line;
 
     public String getPayload() {

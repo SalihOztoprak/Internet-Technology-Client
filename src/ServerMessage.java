@@ -6,7 +6,8 @@ public class ServerMessage {
         DSCN,
         OK,
         ERR,
-        UNKOWN;
+        UNKOWN,
+        FILE;
 
         private MessageType() {
         }

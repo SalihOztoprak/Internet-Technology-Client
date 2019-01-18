@@ -67,7 +67,7 @@ public class Client {
                     System.out.println("Error logging into server");
                 } else {
                     System.out.println("Successfully connected to server.");
-                    System.out.println("(Type 'quit' to close connection and stop application.)");
+                    System.out.println("(Type '/quit' to close connection and stop application.)");
                     System.out.println("Type a broadcast message: ");
                     nonblockReader = new NonblockingBufferedReader(new BufferedReader(new java.io.InputStreamReader(System.in)));
 
@@ -77,7 +77,7 @@ public class Client {
                         if (line != null) {
                             ClientMessage clientMessage;
                             if (line.equals("/quit")) {
-                                clientMessage = new ClientMessage(ClientMessage.MessageType.QUIT, "");
+                                clientMessage = new ClientMessage(ClientMessage.MessageType.QUIT, username + " left the server");
                                 isConnected = false;
 
                                 Thread.sleep(500L);
@@ -85,7 +85,6 @@ public class Client {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
                             }
                             clientMessages.push(clientMessage);
-                            System.out.println("Type a broadcast message: ");
                         }
                         if (!serverMessages.empty()) {
                             ServerMessage received = (ServerMessage) serverMessages.pop();

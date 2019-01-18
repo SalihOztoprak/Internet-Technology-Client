@@ -5,7 +5,8 @@ public class ClientMessage {
         HELO,
         BCST,
         PONG,
-        QUIT;
+        QUIT,
+        ENCR;
 
         private MessageType() {
         }

@@ -2,7 +2,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.Stack;
 
 public class Client {
@@ -14,11 +16,13 @@ public class Client {
     private NonblockingBufferedReader nonblockReader;
     private Stack<ClientMessage> clientMessages;
     private Stack<ServerMessage> serverMessages;
+    private HashMap<String, EncryptionSession> encryptionSessionHashMap;
 
     public Client(ClientConfiguration conf) {
         clientMessages = new Stack();
         serverMessages = new Stack();
         this.conf = conf;
+        encryptionSessionHashMap = new HashMap<>();
     }
 
 
@@ -81,6 +85,16 @@ public class Client {
                                 isConnected = false;
 
                                 Thread.sleep(500L);
+                            } else if (line.startsWith("/msg") && line.split(" ").length > 1) {
+                                String[] splittedline = line.split(" ");
+                                if (encryptionSessionHashMap.containsKey(splittedline[1])) {
+                                    String encryptedLine = encryptionSessionHashMap.get(splittedline[1]).encryptMessage(commandToMessage(splittedline, 2));
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.ENCR, username + " " + encryptedLine);
+                                } else {
+                                    EncryptionSession encryptionSession = new EncryptionSession();
+                                    encryptionSessionHashMap.put(splittedline[1], encryptionSession);
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, username + " " + encryptionSession.getPublicKey());
+                                }
                             } else {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
                             }
@@ -90,6 +104,27 @@ public class Client {
                             ServerMessage received = (ServerMessage) serverMessages.pop();
                             if (received.getMessageType().equals(ServerMessage.MessageType.BCST)) {
                                 System.out.println(received.getPayload());
+                            }
+
+                            String[] splittedMessage = received.getPayload().split(" ");
+                            String cryptedUser = splittedMessage[0];
+                            String cryptedMessage = commandToMessage(splittedMessage, 1);
+
+                            if (received.getMessageType().equals(ServerMessage.MessageType.ENCR)) {
+                                if (encryptionSessionHashMap.containsKey(cryptedUser)) {
+                                    System.out.println(encryptionSessionHashMap.get(cryptedUser).decryptMessage(cryptedMessage));
+                                }
+                            } else if (received.getMessageType().equals(ServerMessage.MessageType.KEYS)) {
+                                if (encryptionSessionHashMap.containsKey(cryptedUser)){
+                                    encryptionSessionHashMap.get(cryptedUser).decryptKey(cryptedMessage);
+                                } else {
+                                    EncryptionSession encryptionSession = new EncryptionSession();
+                                    encryptionSessionHashMap.put(cryptedUser,encryptionSession);
+                                    String aesKey = encryptionSession.encryptKey(cryptedMessage);
+
+                                    ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.KEYS, aesKey);
+                                    clientMessages.push(responseMessage);
+                                }
                             }
                         }
                     }
@@ -103,6 +138,18 @@ public class Client {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    private String commandToMessage(String[] command, int start) {
+        StringBuilder message;
+        message = new StringBuilder();
+        for (int i = start; i < command.length; i++) {
+            message.append(command[i]);
+            if (i != command.length - 1) {
+                message.append(" ");
+            }
+        }
+        return message.toString();
     }
 
     private boolean validateServerMessage(ClientMessage clientMessage, ServerMessage serverMessage) {

@@ -7,7 +7,9 @@ public class ServerMessage {
         OK,
         ERR,
         UNKOWN,
-        FILE;
+        FILE,
+        ENCR,
+        KEYS;
 
         private MessageType() {
         }

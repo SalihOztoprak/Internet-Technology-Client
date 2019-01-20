@@ -1,9 +1,9 @@
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PublicKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.*;
+import java.security.spec.*;
 
 public class EncryptionSession {
     private SecretKey aesKey;
@@ -25,10 +25,12 @@ public class EncryptionSession {
         }
     }
 
-    public String encryptKey(PublicKey publicKey) {
+    public String encryptKey(String publicKey) {
         try {
+            PublicKey key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(stringToBytes(publicKey)));
+
             //Select the encryption and key
-            rsaCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+            rsaCipher.init(Cipher.ENCRYPT_MODE, key);
 
             //Encrypt the bytes and put it in a new array
             byte[] encryptedBytes = rsaCipher.doFinal(aesKey.getEncoded());
@@ -41,7 +43,7 @@ public class EncryptionSession {
         return null;
     }
 
-    public String decryptKey(String cypher) {
+    public void decryptKey(String cypher) {
         try {
             //Change the string to bytes array
             byte[] rawCipher = stringToBytes(cypher);
@@ -53,11 +55,10 @@ public class EncryptionSession {
             byte[] decryptedBytes = rsaCipher.doFinal(rawCipher);
 
             //Return the bytes array as a string
-            return bytesToString(decryptedBytes);
+            setAesKey(bytesToString(decryptedBytes));
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return null;
     }
 
     public String encryptMessage(String message) {
@@ -116,7 +117,12 @@ public class EncryptionSession {
         return message;
     }
 
-    public PublicKey getPublicKey() {
-        return rsaKeys.getPublic();
+    public String getPublicKey() {
+        return bytesToString(rsaKeys.getPublic().getEncoded());
+    }
+
+    private void setAesKey(String stringAesKey){
+        byte[] bytes = stringToBytes(stringAesKey);
+        aesKey = new SecretKeySpec(bytes, 0, bytes.length, "AES");
     }
 }

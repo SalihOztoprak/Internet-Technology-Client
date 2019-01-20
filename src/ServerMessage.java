@@ -42,11 +42,9 @@ public class ServerMessage {
             return line;
         }
 
-
         if ((line == null) || (line.length() < getMessageType().name().length() + 1)) {
             return "";
         }
-
 
         int offset = 0;
         if ((getMessageType().equals(MessageType.OK)) || (getMessageType().equals(MessageType.ERR))) {

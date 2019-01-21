@@ -6,7 +6,8 @@ public class ClientMessage {
         BCST,
         PONG,
         QUIT,
-        ENCR;
+        ENCR,
+        FILE;
 
         private MessageType() {
         }

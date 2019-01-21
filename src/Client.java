@@ -86,17 +86,26 @@ public class Client {
 
                                 Thread.sleep(500L);
                             } else if (line.startsWith("/msg") && line.split(" ").length > 1) {
+                                //Split the message first
                                 String[] splittedline = line.split(" ");
-                                if (encryptionSessionHashMap.containsKey(splittedline[1])) {
-                                    String encryptedLine = encryptionSessionHashMap.get(splittedline[1]).encryptMessage(commandToMessage(splittedline, 2));
-                                    clientMessage = new ClientMessage(ClientMessage.MessageType.ENCR, username + " " + encryptedLine);
+                                String senderUsername = splittedline[1];
+
+                                line = line.replaceFirst("/msg " + senderUsername + " ", "");
+
+                                //Check if we have an encryptionsession with the user or not
+                                if (encryptionSessionHashMap.containsKey(senderUsername)) {
+                                    //We have an encryptionsession, so we can just send the message
+                                    String encryptedLine = encryptionSessionHashMap.get(senderUsername).encryptMessage(line);
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, "/msg " + senderUsername + " " + encryptedLine);
                                 } else {
+                                    //We don't have an encryptionsession yet, so we create one
                                     EncryptionSession encryptionSession = new EncryptionSession();
                                     encryptionSessionHashMap.put(splittedline[1], encryptionSession);
-                                    clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, username + " " + encryptionSession.getPublicKey());
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, username + " " + senderUsername + " " + encryptionSession.getPublicKey());
                                 }
                             } else {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
+                                System.out.println(line);
                             }
                             clientMessages.push(clientMessage);
                         }
@@ -115,11 +124,11 @@ public class Client {
                                     System.out.println(encryptionSessionHashMap.get(cryptedUser).decryptMessage(cryptedMessage));
                                 }
                             } else if (received.getMessageType().equals(ServerMessage.MessageType.KEYS)) {
-                                if (encryptionSessionHashMap.containsKey(cryptedUser)){
+                                if (encryptionSessionHashMap.containsKey(cryptedUser)) {
                                     encryptionSessionHashMap.get(cryptedUser).decryptKey(cryptedMessage);
                                 } else {
                                     EncryptionSession encryptionSession = new EncryptionSession();
-                                    encryptionSessionHashMap.put(cryptedUser,encryptionSession);
+                                    encryptionSessionHashMap.put(cryptedUser, encryptionSession);
                                     String aesKey = encryptionSession.encryptKey(cryptedMessage);
 
                                     ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.KEYS, aesKey);

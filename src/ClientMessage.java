@@ -7,7 +7,8 @@ public class ClientMessage {
         PONG,
         QUIT,
         ENCR,
-        KEYS;
+        KEYS,
+        FILE;
 
         private MessageType() {
         }

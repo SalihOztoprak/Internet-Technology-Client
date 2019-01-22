@@ -96,12 +96,12 @@ public class Client {
                                 if (encryptionSessionHashMap.containsKey(senderUsername)) {
                                     //We have an encryptionsession, so we can just send the message
                                     String encryptedLine = encryptionSessionHashMap.get(senderUsername).encryptMessage(line);
-                                    clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, "/msg " + senderUsername + " " + encryptedLine);
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.ENCR, senderUsername + " " + encryptedLine);
                                 } else {
                                     //We don't have an encryptionsession yet, so we create one
                                     EncryptionSession encryptionSession = new EncryptionSession();
-                                    encryptionSessionHashMap.put(splittedline[1], encryptionSession);
-                                    clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, username + " " + senderUsername + " " + encryptionSession.getPublicKey());
+                                    encryptionSessionHashMap.put(senderUsername, encryptionSession);
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, senderUsername + " " + encryptionSession.getPublicKey());
                                 }
                             } else {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
@@ -115,15 +115,17 @@ public class Client {
                                 System.out.println(received.getPayload());
                             }
 
-                            String[] splittedMessage = received.getPayload().split(" ");
-                            String cryptedUser = splittedMessage[0];
-                            String cryptedMessage = commandToMessage(splittedMessage, 1);
-
                             if (received.getMessageType().equals(ServerMessage.MessageType.ENCR)) {
+                                String[] splitMessage = received.getPayload().split(" ");
+                                String cryptedUser = splitMessage[0];
+                                String cryptedMessage = splitMessage[1];
                                 if (encryptionSessionHashMap.containsKey(cryptedUser)) {
                                     System.out.println(encryptionSessionHashMap.get(cryptedUser).decryptMessage(cryptedMessage));
                                 }
                             } else if (received.getMessageType().equals(ServerMessage.MessageType.KEYS)) {
+                                String[] splitMessage = received.getPayload().split(" ");
+                                String cryptedUser = splitMessage[0];
+                                String cryptedMessage = splitMessage[1];
                                 if (encryptionSessionHashMap.containsKey(cryptedUser)) {
                                     encryptionSessionHashMap.get(cryptedUser).decryptKey(cryptedMessage);
                                 } else {
@@ -131,7 +133,7 @@ public class Client {
                                     encryptionSessionHashMap.put(cryptedUser, encryptionSession);
                                     String aesKey = encryptionSession.encryptKey(cryptedMessage);
 
-                                    ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.KEYS, aesKey);
+                                    ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.KEYS, cryptedUser + " " + aesKey);
                                     clientMessages.push(responseMessage);
                                 }
                             }

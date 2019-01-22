@@ -1,15 +1,19 @@
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.*;
 import java.security.spec.*;
+import java.util.Base64;
 
 public class EncryptionSession {
     private SecretKey aesKey;
     private Cipher aesCipher;
     private KeyPair rsaKeys;
     private Cipher rsaCipher;
+    private IvParameterSpec iv;
+    private SecretKeySpec skeySpec;
 
     public EncryptionSession() {
         try {
@@ -20,6 +24,9 @@ public class EncryptionSession {
             KeyPairGenerator rsaKeyGen = KeyPairGenerator.getInstance("RSA");
             rsaKeys = rsaKeyGen.generateKeyPair();
             rsaCipher = Cipher.getInstance("RSA");
+
+            iv = new IvParameterSpec(aesKey.getEncoded());
+            skeySpec = new SecretKeySpec(aesKey.getEncoded(), "AES");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -27,16 +34,17 @@ public class EncryptionSession {
 
     public String encryptKey(String publicKey) {
         try {
-            PublicKey key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(stringToBytes(publicKey)));
+            X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(base64ToBytes(publicKey));
+            PublicKey publicKey1 = KeyFactory.getInstance("RSA").generatePublic(x509EncodedKeySpec);
 
             //Select the encryption and key
-            rsaCipher.init(Cipher.ENCRYPT_MODE, key);
+            rsaCipher.init(Cipher.ENCRYPT_MODE, publicKey1);
 
             //Encrypt the bytes and put it in a new array
             byte[] encryptedBytes = rsaCipher.doFinal(aesKey.getEncoded());
 
             //Return the bytes array as a string
-            return bytesToString(encryptedBytes);
+            return bytesToBase64(encryptedBytes);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -46,7 +54,7 @@ public class EncryptionSession {
     public void decryptKey(String cypher) {
         try {
             //Change the string to bytes array
-            byte[] rawCipher = stringToBytes(cypher);
+            byte[] rawCipher = base64ToBytes(cypher);
 
             //Select the encryption and key
             rsaCipher.init(Cipher.DECRYPT_MODE, rsaKeys.getPrivate());
@@ -55,7 +63,9 @@ public class EncryptionSession {
             byte[] decryptedBytes = rsaCipher.doFinal(rawCipher);
 
             //Return the bytes array as a string
-            setAesKey(bytesToString(decryptedBytes));
+            aesKey = new SecretKeySpec(decryptedBytes, 0, decryptedBytes.length, "AES");
+            iv = new IvParameterSpec(aesKey.getEncoded());
+            skeySpec = new SecretKeySpec(aesKey.getEncoded(), "AES");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -67,14 +77,13 @@ public class EncryptionSession {
             byte[] rawMessage = message.getBytes();
 
             //Select the encryption and key
-            aesCipher.init(Cipher.ENCRYPT_MODE, aesKey);
+            aesCipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv);
 
             //Encrypt the bytes and put it in a new array
-            byte[] encryptedBytes;
-            encryptedBytes = aesCipher.doFinal(rawMessage);
+            byte[] encryptedBytes = aesCipher.doFinal(rawMessage);
 
             //Return the bytes array as a string
-            return bytesToString(encryptedBytes);
+            return bytesToBase64(encryptedBytes);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -84,45 +93,31 @@ public class EncryptionSession {
     public String decryptMessage(String cypherText) {
         try {
             //Change the string to bytes array
-            byte[] rawCipher = stringToBytes(cypherText);
+            byte[] rawCipher = base64ToBytes(cypherText);
 
             //Select the encryption and key
-            aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
+            aesCipher.init(Cipher.DECRYPT_MODE, skeySpec, iv);
 
             //Decrypt the bytes and put it in a new array
             byte[] decryptedBytes = aesCipher.doFinal(rawCipher);
 
             //Return the bytes array as a string
-            return bytesToString(decryptedBytes);
+            return new String(decryptedBytes);
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    private byte[] stringToBytes(String crypt) {
-        byte[] bytes = new byte[crypt.length()];
-
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) crypt.charAt(i);
-        }
-        return bytes;
+    private byte[] base64ToBytes(String base64String) {
+        return Base64.getDecoder().decode(base64String);
     }
 
-    private String bytesToString(byte[] bytes){
-        String message = "";
-        for (int i = 0; i < bytes.length; i++) {
-            message += Character.toString((char) Byte.toUnsignedInt(bytes[i]));
-        }
-        return message;
+    private String bytesToBase64(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     public String getPublicKey() {
-        return bytesToString(rsaKeys.getPublic().getEncoded());
-    }
-
-    private void setAesKey(String stringAesKey){
-        byte[] bytes = stringToBytes(stringAesKey);
-        aesKey = new SecretKeySpec(bytes, 0, bytes.length, "AES");
+        return bytesToBase64(rsaKeys.getPublic().getEncoded());
     }
 }

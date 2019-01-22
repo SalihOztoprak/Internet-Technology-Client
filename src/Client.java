@@ -17,12 +17,14 @@ public class Client {
     private Stack<ClientMessage> clientMessages;
     private Stack<ServerMessage> serverMessages;
     private HashMap<String, EncryptionSession> encryptionSessionHashMap;
+    private HashMap<String, String> savedMessage;
 
     public Client(ClientConfiguration conf) {
         clientMessages = new Stack();
         serverMessages = new Stack();
         this.conf = conf;
         encryptionSessionHashMap = new HashMap<>();
+        savedMessage = new HashMap<>();
     }
 
 
@@ -44,10 +46,8 @@ public class Client {
             writerThread = new MessageWriter(writer);
             new Thread(writerThread).start();
 
-
             while (serverMessages.empty()) {
             }
-
 
             ServerMessage serverMessage = (ServerMessage) serverMessages.pop();
             if (!serverMessage.getMessageType().equals(ServerMessage.MessageType.HELO)) {
@@ -60,7 +60,6 @@ public class Client {
 
                 ClientMessage heloMessage = new ClientMessage(ClientMessage.MessageType.HELO, username);
                 clientMessages.push(heloMessage);
-
 
                 while (serverMessages.empty()) {
                 }
@@ -88,26 +87,36 @@ public class Client {
                             } else if (line.startsWith("/msg") && line.split(" ").length > 1) {
                                 //Split the message first
                                 String[] splittedline = line.split(" ");
-                                String senderUsername = splittedline[1];
+                                String senderUsername = splittedline[1].toLowerCase();
 
-                                line = line.replaceFirst("/msg " + senderUsername + " ", "");
+                                if (!senderUsername.equalsIgnoreCase(username)) {
+                                    line = line.replace("/msg " + splittedline[1] + " ", "");
 
-                                //Check if we have an encryptionsession with the user or not
-                                if (encryptionSessionHashMap.containsKey(senderUsername)) {
-                                    //We have an encryptionsession, so we can just send the message
-                                    String encryptedLine = encryptionSessionHashMap.get(senderUsername).encryptMessage(line);
-                                    clientMessage = new ClientMessage(ClientMessage.MessageType.ENCR, senderUsername + " " + encryptedLine);
+                                    //Check if we have an encryptionsession with the user or not
+                                    if (encryptionSessionHashMap.containsKey(senderUsername)) {
+                                        //We have an encryptionsession, so we can just send the message
+                                        String encryptedLine = encryptionSessionHashMap.get(senderUsername).encryptMessage(line);
+                                        clientMessage = new ClientMessage(ClientMessage.MessageType.ENCR, senderUsername + " " + encryptedLine);
+                                        System.out.println("(You -> " + senderUsername + "): " + line);
+                                    } else {
+                                        //We don't have an encryptionsession yet, so we create one
+                                        EncryptionSession encryptionSession = new EncryptionSession();
+                                        encryptionSessionHashMap.put(senderUsername, encryptionSession);
+                                        clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, senderUsername + " " + encryptionSession.getPublicKey());
+                                        savedMessage.put(senderUsername, line);
+                                    }
                                 } else {
-                                    //We don't have an encryptionsession yet, so we create one
-                                    EncryptionSession encryptionSession = new EncryptionSession();
-                                    encryptionSessionHashMap.put(senderUsername, encryptionSession);
-                                    clientMessage = new ClientMessage(ClientMessage.MessageType.KEYS, senderUsername + " " + encryptionSession.getPublicKey());
+                                    System.out.println("You cannot send a message to yourself");
+                                    clientMessage = null;
                                 }
                             } else {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
                                 System.out.println(line);
                             }
-                            clientMessages.push(clientMessage);
+
+                            if (clientMessage != null) {
+                                clientMessages.push(clientMessage);
+                            }
                         }
                         if (!serverMessages.empty()) {
                             ServerMessage received = (ServerMessage) serverMessages.pop();
@@ -115,20 +124,36 @@ public class Client {
                                 System.out.println(received.getPayload());
                             }
 
+                            //Check if we received an encrypted message
                             if (received.getMessageType().equals(ServerMessage.MessageType.ENCR)) {
                                 String[] splitMessage = received.getPayload().split(" ");
-                                String cryptedUser = splitMessage[0];
+                                String cryptedUser = splitMessage[0].toLowerCase();
                                 String cryptedMessage = splitMessage[1];
+                                //If we have a session with this user, we can decrypt the message
                                 if (encryptionSessionHashMap.containsKey(cryptedUser)) {
-                                    System.out.println(encryptionSessionHashMap.get(cryptedUser).decryptMessage(cryptedMessage));
+                                    System.out.println("(" + cryptedUser + " -> You): " + encryptionSessionHashMap.get(cryptedUser).decryptMessage(cryptedMessage));
                                 }
                             } else if (received.getMessageType().equals(ServerMessage.MessageType.KEYS)) {
+                                //If this is the first time, we have to share keys
                                 String[] splitMessage = received.getPayload().split(" ");
-                                String cryptedUser = splitMessage[0];
+                                String cryptedUser = splitMessage[0].toLowerCase();
                                 String cryptedMessage = splitMessage[1];
+
+                                //Check if we send the first message or not
                                 if (encryptionSessionHashMap.containsKey(cryptedUser)) {
                                     encryptionSessionHashMap.get(cryptedUser).decryptKey(cryptedMessage);
+
+                                    //After saving the aes key, we have to resend our first message
+                                    String msg = savedMessage.get(cryptedUser);
+                                    if (msg != null) {
+                                        String encryptedLine = encryptionSessionHashMap.get(cryptedUser).encryptMessage(msg);
+                                        ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.ENCR, cryptedUser + " " + encryptedLine);
+                                        clientMessages.push(responseMessage);
+                                        System.out.println("(You -> " + cryptedUser + "): " + msg);
+                                        savedMessage.remove(cryptedUser);
+                                    }
                                 } else {
+                                    //We send our aes key when we didn't send the message first
                                     EncryptionSession encryptionSession = new EncryptionSession();
                                     encryptionSessionHashMap.put(cryptedUser, encryptionSession);
                                     String aesKey = encryptionSession.encryptKey(cryptedMessage);

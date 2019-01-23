@@ -4,7 +4,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Scanner;
-import java.util.Set;
 import java.util.Stack;
 
 public class Client {
@@ -109,6 +108,20 @@ public class Client {
                                     System.out.println("You cannot send a message to yourself");
                                     clientMessage = null;
                                 }
+                            } else if (line.startsWith("/file") && line.split(" ").length == 3) {
+                                //Split the message first
+                                String[] splitLine = line.split(" ");
+                                String senderUsername = splitLine[1].toLowerCase();
+
+                                if (!senderUsername.equalsIgnoreCase(username)) {
+                                    String fileBase64String = new FileTransfer(splitLine[2], senderUsername).sendFile();
+                                    clientMessage = new ClientMessage(ClientMessage.MessageType.FILE, fileBase64String);
+                                    System.out.println("You have send " + splitLine[2] + " to " + senderUsername);
+                                }  else {
+                                    System.out.println("You cannot send a file to yourself");
+                                    clientMessage = null;
+                                }
+
                             } else {
                                 clientMessage = new ClientMessage(ClientMessage.MessageType.BCST, line);
                                 System.out.println(line);
@@ -120,47 +133,67 @@ public class Client {
                         }
                         if (!serverMessages.empty()) {
                             ServerMessage received = (ServerMessage) serverMessages.pop();
+
+
+
                             if (received.getMessageType().equals(ServerMessage.MessageType.BCST)) {
                                 System.out.println(received.getPayload());
                             }
 
                             //Check if we received an encrypted message
-                            if (received.getMessageType().equals(ServerMessage.MessageType.ENCR)) {
+                            else if (received.getMessageType().equals(ServerMessage.MessageType.ENCR)) {
+                                //Split the message first
                                 String[] splitMessage = received.getPayload().split(" ");
-                                String cryptedUser = splitMessage[0].toLowerCase();
-                                String cryptedMessage = splitMessage[1];
+                                String sender = splitMessage[0].toLowerCase();
+                                String encryptedMessage = splitMessage[1];
+
                                 //If we have a session with this user, we can decrypt the message
-                                if (encryptionSessionHashMap.containsKey(cryptedUser)) {
-                                    System.out.println("(" + cryptedUser + " -> You): " + encryptionSessionHashMap.get(cryptedUser).decryptMessage(cryptedMessage));
+                                if (encryptionSessionHashMap.containsKey(sender)) {
+                                    System.out.println("(" + sender + " -> You): " + encryptionSessionHashMap.get(sender).decryptMessage(encryptedMessage));
                                 }
-                            } else if (received.getMessageType().equals(ServerMessage.MessageType.KEYS)) {
-                                //If this is the first time, we have to share keys
+                            }
+
+                            //If this is the first time, we have to share keys
+                            else if (received.getMessageType().equals(ServerMessage.MessageType.KEYS)) {
+                                //Split the message first
                                 String[] splitMessage = received.getPayload().split(" ");
-                                String cryptedUser = splitMessage[0].toLowerCase();
-                                String cryptedMessage = splitMessage[1];
+                                String sender = splitMessage[0].toLowerCase();
+                                String encryptedKey = splitMessage[1];
 
                                 //Check if we send the first message or not
-                                if (encryptionSessionHashMap.containsKey(cryptedUser)) {
-                                    encryptionSessionHashMap.get(cryptedUser).decryptKey(cryptedMessage);
+                                if (encryptionSessionHashMap.containsKey(sender)) {
+                                    encryptionSessionHashMap.get(sender).decryptKey(encryptedKey);
 
                                     //After saving the aes key, we have to resend our first message
-                                    String msg = savedMessage.get(cryptedUser);
+                                    String msg = savedMessage.get(sender);
                                     if (msg != null) {
-                                        String encryptedLine = encryptionSessionHashMap.get(cryptedUser).encryptMessage(msg);
-                                        ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.ENCR, cryptedUser + " " + encryptedLine);
+                                        String encryptedLine = encryptionSessionHashMap.get(sender).encryptMessage(msg);
+                                        ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.ENCR, sender + " " + encryptedLine);
                                         clientMessages.push(responseMessage);
-                                        System.out.println("(You -> " + cryptedUser + "): " + msg);
-                                        savedMessage.remove(cryptedUser);
+                                        System.out.println("(You -> " + sender + "): " + msg);
+                                        savedMessage.remove(sender);
                                     }
-                                } else {
-                                    //We send our aes key when we didn't send the message first
-                                    EncryptionSession encryptionSession = new EncryptionSession();
-                                    encryptionSessionHashMap.put(cryptedUser, encryptionSession);
-                                    String aesKey = encryptionSession.encryptKey(cryptedMessage);
+                                }
 
-                                    ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.KEYS, cryptedUser + " " + aesKey);
+                                //We send our aes key when we didn't send the message first
+                                else {
+                                    EncryptionSession encryptionSession = new EncryptionSession();
+                                    encryptionSessionHashMap.put(sender, encryptionSession);
+                                    String aesKey = encryptionSession.encryptKey(encryptedKey);
+
+                                    ClientMessage responseMessage = new ClientMessage(ClientMessage.MessageType.KEYS, sender + " " + aesKey);
                                     clientMessages.push(responseMessage);
                                 }
+                            }
+
+                            //Check if the message is a file
+                            else if (received.getMessageType().equals(ServerMessage.MessageType.FILE)){
+                                String[] splitMessage = received.getPayload().split(" ");
+                                String sender = splitMessage[0].toLowerCase();
+                                String base64String = splitMessage[2];
+
+                                new FileTransfer(base64String, splitMessage[1], true).saveFile();
+                                System.out.println("You have received " + splitMessage[1] + " from " + sender);
                             }
                         }
                     }

@@ -6,39 +6,45 @@ import java.util.HashMap;
 import java.util.Scanner;
 import java.util.Stack;
 
+/**
+ * This class is used to define a client and handles all the methods for sending and receiving messages
+ */
 public class Client {
+    private boolean isConnected = false;
     private ClientConfiguration conf;
-    private Socket socket;
     private MessageReader readerThread;
     private MessageWriter writerThread;
-    boolean isConnected = false;
     private NonblockingBufferedReader nonblockReader;
     private Stack<ClientMessage> clientMessages;
     private Stack<ServerMessage> serverMessages;
     private HashMap<String, EncryptionSession> encryptionSessionHashMap;
     private HashMap<String, String> savedMessage;
 
+    /**
+     * This constructor is used to define a new client and handles all the methods for sending and receiving messages
+     *
+     * @param conf The configuration of the client
+     */
     public Client(ClientConfiguration conf) {
-        clientMessages = new Stack();
-        serverMessages = new Stack();
+        clientMessages = new Stack<>();
+        serverMessages = new Stack<>();
         this.conf = conf;
         encryptionSessionHashMap = new HashMap<>();
         savedMessage = new HashMap<>();
     }
 
-
+    /**
+     * This method starts a connection from the client to the server
+     */
     public void start() {
         try {
-            socket = new Socket(conf.getServerIp(), conf.getServerPort());
-
+            Socket socket = new Socket(conf.getServerIp(), conf.getServerPort());
 
             java.io.InputStream is = socket.getInputStream();
             BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(is));
 
-
             readerThread = new MessageReader(reader);
             new Thread(readerThread).start();
-
 
             java.io.OutputStream os = socket.getOutputStream();
             PrintWriter writer = new PrintWriter(os);
@@ -46,9 +52,10 @@ public class Client {
             new Thread(writerThread).start();
 
             while (serverMessages.empty()) {
+                //Do nothing
             }
 
-            ServerMessage serverMessage = (ServerMessage) serverMessages.pop();
+            ServerMessage serverMessage = serverMessages.pop();
             if (!serverMessage.getMessageType().equals(ServerMessage.MessageType.HELO)) {
                 System.out.println("Expecting a HELO message but received: " + serverMessage.toString());
             } else {
@@ -64,7 +71,7 @@ public class Client {
                 }
 
 
-                isConnected = validateServerMessage(heloMessage, (ServerMessage) serverMessages.pop());
+                isConnected = validateServerMessage(heloMessage, serverMessages.pop());
                 if (!isConnected) {
                     System.out.println("Error logging into server");
                 } else {
@@ -117,7 +124,7 @@ public class Client {
                                     String fileBase64String = new FileTransfer(splitLine[2], senderUsername).sendFile();
                                     clientMessage = new ClientMessage(ClientMessage.MessageType.FILE, fileBase64String);
                                     System.out.println("You have send " + splitLine[2] + " to " + senderUsername);
-                                }  else {
+                                } else {
                                     System.out.println("You cannot send a file to yourself");
                                     clientMessage = null;
                                 }
@@ -132,8 +139,7 @@ public class Client {
                             }
                         }
                         if (!serverMessages.empty()) {
-                            ServerMessage received = (ServerMessage) serverMessages.pop();
-
+                            ServerMessage received = serverMessages.pop();
 
 
                             if (received.getMessageType().equals(ServerMessage.MessageType.BCST)) {
@@ -187,12 +193,12 @@ public class Client {
                             }
 
                             //Check if the message is a file
-                            else if (received.getMessageType().equals(ServerMessage.MessageType.FILE)){
+                            else if (received.getMessageType().equals(ServerMessage.MessageType.FILE)) {
                                 String[] splitMessage = received.getPayload().split(" ");
                                 String sender = splitMessage[0].toLowerCase();
                                 String base64String = splitMessage[2];
 
-                                new FileTransfer(base64String, splitMessage[1], true).saveFile();
+                                new FileTransfer(base64String, splitMessage[0], true).readFile();
                                 System.out.println("You have received " + splitMessage[1] + " from " + sender);
                             }
                         }
@@ -209,18 +215,13 @@ public class Client {
         }
     }
 
-    private String commandToMessage(String[] command, int start) {
-        StringBuilder message;
-        message = new StringBuilder();
-        for (int i = start; i < command.length; i++) {
-            message.append(command[i]);
-            if (i != command.length - 1) {
-                message.append(" ");
-            }
-        }
-        return message.toString();
-    }
-
+    /**
+     * This method will validate the +OK message received from the server when entering an username
+     *
+     * @param clientMessage The message from the client
+     * @param serverMessage The message from the server
+     * @return True when message is validated, false when it is not validated
+     */
     private boolean validateServerMessage(ClientMessage clientMessage, ServerMessage serverMessage) {
         boolean isValid = false;
         try {
@@ -236,6 +237,9 @@ public class Client {
         return isValid;
     }
 
+    /**
+     * This method will disconnect you from the server
+     */
     private void disconnect() {
         if (readerThread != null)
             readerThread.kill();
@@ -247,6 +251,9 @@ public class Client {
         isConnected = false;
     }
 
+    /**
+     * This method is used to read messages send from the server
+     */
     public class MessageReader implements Runnable {
         private volatile boolean isRunning = true;
         private BufferedReader reader;
@@ -287,9 +294,7 @@ public class Client {
                 line = reader.readLine();
                 if ((line != null) && (conf.isShowLogging())) {
                     if (conf.isShowColors()) {
-                        conf.getClass();
                         String colorCode = "\033[31m";
-                        conf.getClass();
                         System.out.println(colorCode + ">> " + line + "\033[0m");
                     } else {
                         System.out.println("<< " + line);
@@ -306,6 +311,9 @@ public class Client {
         }
     }
 
+    /**
+     * This method is used to write messages send to the server
+     */
     public class MessageWriter implements Runnable {
         private volatile boolean isRunning = true;
         PrintWriter writer;
@@ -317,7 +325,7 @@ public class Client {
         public void run() {
             while (isRunning) {
                 if (!clientMessages.empty()) {
-                    writeToServer((ClientMessage) clientMessages.pop(), writer);
+                    writeToServer(clientMessages.pop(), writer);
                 }
             }
         }
@@ -326,9 +334,7 @@ public class Client {
             String line = message.toString();
             if (conf.isShowLogging()) {
                 if (conf.isShowColors()) {
-                    conf.getClass();
                     String colorCode = "\033[32m";
-                    conf.getClass();
                     System.out.println(colorCode + "<< " + line + "\033[0m");
                 } else {
                     System.out.println("<< " + line);

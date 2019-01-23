@@ -7,6 +7,10 @@ import java.security.*;
 import java.security.spec.*;
 import java.util.Base64;
 
+/**
+ * This method is used to create an encryptionsession
+ * When you send a private message to another user, an instance of this class will be made
+ */
 public class EncryptionSession {
     private SecretKey aesKey;
     private Cipher aesCipher;
@@ -15,6 +19,10 @@ public class EncryptionSession {
     private IvParameterSpec iv;
     private SecretKeySpec skeySpec;
 
+    /**
+     * This is the default constructor for this class
+     * The constructor will generate the keys needed for the encryption
+     */
     public EncryptionSession() {
         try {
             KeyGenerator aesKeyGen = KeyGenerator.getInstance("AES");
@@ -32,6 +40,12 @@ public class EncryptionSession {
         }
     }
 
+    /**
+     * This method will encrypt your AES key with the given public key
+     *
+     * @param publicKey The public key from the sender
+     * @return A string that contains an encrypted AES key
+     */
     public String encryptKey(String publicKey) {
         try {
             X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(base64ToBytes(publicKey));
@@ -51,6 +65,11 @@ public class EncryptionSession {
         return null;
     }
 
+    /**
+     * This method will decrypt the given encrypted AES key and set it as your new AES key
+     *
+     * @param cypher The encrypted AES key
+     */
     public void decryptKey(String cypher) {
         try {
             //Change the string to bytes array
@@ -71,6 +90,12 @@ public class EncryptionSession {
         }
     }
 
+    /**
+     * This method will encrypt your given message using your AES key
+     *
+     * @param message The message you want to encrypt
+     * @return The encrypted message
+     */
     public String encryptMessage(String message) {
         try {
             //Change the string to bytes array
@@ -90,6 +115,12 @@ public class EncryptionSession {
         return null;
     }
 
+    /**
+     * This method will decrypt your encrypted message using your AES key
+     *
+     * @param cypherText The encrypted message
+     * @return The decrypted message
+     */
     public String decryptMessage(String cypherText) {
         try {
             //Change the string to bytes array
@@ -109,14 +140,32 @@ public class EncryptionSession {
         return null;
     }
 
+    /**
+     * This method returns a byte array from a Base64 string
+     *
+     * @param base64String The string you want to decode
+     * @return The decoded Base64 byte array
+     */
     private byte[] base64ToBytes(String base64String) {
         return Base64.getDecoder().decode(base64String);
     }
 
+    /**
+     * This method returns a Base64 string from a byte array
+     *
+     * @param bytes The byte array you want to encode
+     * @return The encoded Base64 string
+     */
     private String bytesToBase64(byte[] bytes) {
         return Base64.getEncoder().encodeToString(bytes);
     }
 
+    /**
+     * This method returns your public key as a Base64 encoded string
+     * You can use this for sending your public key to other users
+     *
+     * @return The Base64 encoded string of your public key
+     */
     public String getPublicKey() {
         return bytesToBase64(rsaKeys.getPublic().getEncoded());
     }
